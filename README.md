@@ -64,7 +64,7 @@ Top predictors by Ridge coefficient magnitude: equity excess return (0.122), 5Y 
 ```
 jpmaqs.ipynb          # Main notebook: data download → features → model → OOS predictions
 predictions.txt       # 52×9 matrix of weekly OOS predictions (tab-delimited)
-rationale 2.pdf       # 3-page economic rationale document
+rationale.pdf         # 3-page economic rationale document
 cv_rmse.png           # CV RMSE by fold and model
 feature_importance.png # Ridge coefficients + permutation importance
 oos_vs_actual.png     # OOS predictions vs actuals per country
@@ -95,7 +95,7 @@ Run the notebook top to bottom to reproduce all results. Downloaded data is cach
 
 ## Economic Rationale
 
-Full methodology and economic justification for predictor selection, model design, and result interpretation is documented in [`rationale 2.pdf`](rationale%202.pdf), covering:
+Full methodology and economic justification for predictor selection, model design, and result interpretation is documented in [`rationale.pdf`](rationale.pdf), covering:
 1. Predictor selection grounded in the Fisher decomposition, bond carry theory, and risk appetite channels
 2. Ensemble design rationale — regime robustness over CV-RMSE minimization
 3. OOS results, naive baseline comparison, per-model breakdown, and model limitations

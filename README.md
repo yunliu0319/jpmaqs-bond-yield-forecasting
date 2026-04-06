@@ -6,7 +6,7 @@ Forecasting weekly changes in 10-year government bond yields across nine develop
 
 ## The Problem
 
-Weekly bond yield changes are driven by multiple factors including economic shocks and monetary policy regimes, investors' liquidity and risk aversion concerns. 
+Weekly bond yield changes are driven by multiple factors including economic shocks and monetary policy regimes, investors' liquidity and risk aversion concerns. The impacts of these factors take effect at different time spans, making the prediction of yields challenging. 
 
 This project builds a panel forecasting model that remains predictive across regime shifts by combining linear and non-linear learners, evaluated on a strict 52-week out-of-sample window.
 

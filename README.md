@@ -6,7 +6,7 @@ Forecasting weekly changes in 10-year government bond yields across nine develop
 
 ## The Problem
 
-Weekly bond yield changes are hard to forecast — they blend permanent macro revisions with transient liquidity effects, and the macro-yield relationship shifts across monetary policy regimes. Standard aggregate indices also suffer from composition bias that obscures the true signal.
+Weekly bond yield changes are driven by multiple factors at different time scopes including economic shocks and monetary policy regimes, investors' liquidity and risk aversions concerns. 
 
 This project builds a panel forecasting model that remains predictive across regime shifts by combining linear and non-linear learners, evaluated on a strict 52-week out-of-sample window.
 

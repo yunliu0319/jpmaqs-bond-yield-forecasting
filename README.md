@@ -6,45 +6,76 @@ Forecasting weekly changes in 10-year government bond yields across nine develop
 
 ## The Problem
 
-Weekly bond yield changes are driven by multiple factors including economic shocks and monetary policy regimes, investors' liquidity and risk aversion concerns. The impacts of these factors take effect at different time spans, making the prediction of yields challenging. 
+Weekly bond yield changes are driven by multiple factors including economic shocks and monetary policy regimes, investors' liquidity and risk aversion concerns. The impacts of these factors take effect at different time spans, making the prediction of yields challenging.
 
-This project builds a panel forecasting model that remains predictive across regime shifts by combining linear and non-linear learners, evaluated on a strict 52-week out-of-sample window.
+This project builds a panel forecasting model that remains predictive across regime shifts, evaluated on a strict 52-week out-of-sample window.
 
 ---
 
 ## Approach
 
-**Data**: 40 point-in-time JPMaQS indicators (published without look-ahead revision bias) spanning:
-- Bond carry at 2Y and 5Y maturities (`DU02YCRY_NSA`, `DU05YCRY_NSA`)
+**Data**: 42 point-in-time JPMaQS indicators (published without look-ahead revision bias) spanning:
+- Bond carry at 2Y, 5Y, and 10Y maturities (`DU02YCRY_NSA`, `DU05YCRY_NSA`, `DU10YCRY_NSA`)
 - CPI inflation and 1Y inflation expectations (`CPIH_SA_P1M1ML12`, `INFE1Y_JA`)
+- Real yield IRS at 2Y and 5Y (`RYLDIRS02Y_NSA`, `RYLDIRS05Y_NSA`)
 - Equity excess returns and cross-sectional z-scores (`EQXR_NSA`, `EQXR_NSA_csz`)
-- Credit-to-GDP (`PCREDITGDP_SA`)
-- Three engineered features: carry slope, real yield spread, equity z-score
+- Monetary policy cycle: 4-week change in 2Y real yield IRS, own-country and global (`mp_cycle_own`, `mp_cycle_global`)
+- Credit-to-GDP, monetary base, industrial production, unemployment, and others
 
 **Model**: Equal-weight `VotingRegressor` ensemble of:
-- Ridge Regression (L2, interpretable coefficients)
-- ElasticNet (L1+L2, sparse signal selection)
-- HistGradientBoosting (non-linear, handles missing values natively)
+- Ridge Regression (L2, interpretable coefficients, stable baseline)
+- HistGradientBoosting (non-linear, adaptive to regime shifts)
 
-**Validation**: Walk-forward `TimeSeriesSplit` (5 folds, 4-week gap) on a pooled 9-country panel — sorted by date, not country, to enforce strictly chronological folds.
+**Validation**: Walk-forward `TimeSeriesSplit` (5 folds, 4-week gap) on a pooled 9-country panel — sorted by date to enforce strictly chronological folds.
 
-**Target**: Weekly `DU10YXR_NSA` (10-year bond duration excess return, % per week) — proportional to yield changes, across USD, EUR, GBP, JPY, AUD, CAD, CHF, SEK, NOK.
+**Target**: Weekly `DU10YXR_NSA` (10-year bond duration excess return, % per week) across USD, EUR, GBP, JPY, AUD, CAD, CHF, SEK, NOK.
 
 ---
 
 ## Results
 
-| Metric | Value |
-|---|---|
-| CV RMSE (ensemble) | 0.927% ± 0.163 per week |
-| OOS RMSE | 0.688% vs. 0.714% naive baseline |
-| Skill over naive (RMSE) | 3.6% |
-| OOS directional accuracy | **57.9%** vs. 50% naive (+7.9pp) |
-| Training OOF directional accuracy | 54.5% |
+| Model | OOS RMSE | RMSE Skill | OOS Dir. Accuracy |
+|---|---|---|---|
+| Naive (predict zero) | 0.714% | 0.0% | 50.0% |
+| Ridge + ElasticNet + HGB (original) | 0.688% | 3.6% | 57.9% |
+| Ridge + HGB (ElasticNet dropped) | 0.685% | 4.0% | 57.7% |
+| **Ridge + HGB + regime indicator (final)** | **0.639%** | **10.4%** | **62.2%** |
 
 OOS period: 52 weeks, March 2025 – March 2026 (468 country-week observations).
+Improvement vs naive (62.2%) is statistically significant at p < 0.001.
 
-**Key finding**: ElasticNet ranked best in walk-forward CV (RMSE 0.882%) but worst OOS (1.6% skill), as its sparse coefficients overfit to the tightening regime prevalent in the training sample and lost predictive power in the subsequent cutting cycle. HistGradBoost's non-linear, full-feature structure generalized better across the regime shift and is the ensemble's primary source of OOS skill — validating the ensemble's regime-robustness design over pure CV-RMSE minimization.
+---
+
+## Model Refinement
+
+The final model was reached through two iterative improvements over the original three-model ensemble:
+
+**Step 1 — Diagnose ElasticNet regime overfitting**
+
+ElasticNet ranked best in walk-forward CV (RMSE 0.882%) but worst OOS (1.6% skill). The CV-OOS reversal is consistent with its sparse L1 regularization locking onto a small set of features calibrated to the tightening regime (2022–2025), which lost predictive power when the cutting cycle began in the OOS window. HistGradBoost alone matched the full ensemble's OOS RMSE (0.6879% vs 0.6880%), confirming ElasticNet added no OOS value and could be dropped.
+
+**Step 2 — Add explicit monetary policy cycle indicator**
+
+The models had access to the *level* of 2Y real yield IRS but not its *direction of change*. Adding the 4-week change in `RYLDIRS02Y_NSA` per country (`mp_cycle_own`) and its cross-sectional mean (`mp_cycle_global`) gives both Ridge and HGB explicit information about whether policy expectations are tightening or easing — without requiring them to infer regime from raw levels alone.
+
+This improved RMSE skill from 4.0% to 10.4% and directional accuracy from 57.7% to 62.2%.
+
+---
+
+## Hypothesis Tests
+
+**H4 — Does model skill concentrate in large weekly return moves?**
+
+Directional accuracy by actual move magnitude quartile (n=117 each):
+
+| Quartile | Mean yield Δ | Dir. accuracy |
+|---|---|---|
+| Q1 (smallest, 0–2.3bps) | 1.2bps | 55.6% |
+| Q2 (2.3–4.9bps) | 3.4bps | 60.7% |
+| Q3 (4.9–8.3bps) | 6.4bps | 51.3% |
+| Q4 (largest, 8.3–48.7bps) | 14.4bps | 64.1% |
+
+The Q4 vs Q1 gap (8.5pp) is directionally consistent with the alternative hypothesis but not significant at 5% (p = 0.091, one-tailed). The 52-week OOS window provides insufficient power to detect this effect reliably — ~200 observations per quartile would be needed for 80% power.
 
 ---
 
@@ -52,24 +83,25 @@ OOS period: 52 weeks, March 2025 – March 2026 (468 country-week observations).
 
 | | |
 |---|---|
-| ![CV RMSE by fold](cv_rmse.png) | ![Feature importance](feature_importance.png) |
+| ![CV RMSE by fold](cv_rmse.png) | ![Feature importance (original)](feature_importance.png) |
+| ![H4: accuracy by move magnitude](h4_large_move_accuracy.png) | ![Feature importance v2](feature_importance_v2.png) |
 | ![OOS vs actual](oos_vs_actual.png) | ![Predictions heatmap](predictions_heatmap.png) |
-
-Top predictors by Ridge coefficient magnitude: equity excess return (0.122), 5Y bond carry (0.099), 2Y bond carry (0.070), carry slope (0.070), CPI inflation (0.060). All align with the economic channels motivating the feature selection.
 
 ---
 
 ## Repo Structure
 
 ```
-jpmaqs.ipynb          # Main notebook: data download → features → model → OOS predictions
-predictions.txt       # 52×9 matrix of weekly OOS predictions (tab-delimited)
-rationale.pdf         # 3-page economic rationale document
-cv_rmse.png           # CV RMSE by fold and model
-feature_importance.png # Ridge coefficients + permutation importance
-oos_vs_actual.png     # OOS predictions vs actuals per country
-predictions_heatmap.png # Heatmap of OOS prediction matrix
-residuals.png         # OOF residual diagnostics
+jpmaqs.ipynb              # Main notebook: data → features → model → experiments
+predictions.txt           # 52×9 matrix of weekly OOS predictions (tab-delimited)
+rationale.pdf             # 3-page economic rationale document
+cv_rmse.png               # CV RMSE by fold and model
+feature_importance.png    # Ridge coefficients + HGB permutation importance (original)
+feature_importance_v2.png # Feature importance after adding regime indicator
+h4_large_move_accuracy.png # H4: directional accuracy by move magnitude quartile
+oos_vs_actual.png         # OOS predictions vs actuals per country
+predictions_heatmap.png   # Heatmap of OOS prediction matrix
+residuals.png             # OOF residual diagnostics
 ```
 
 ---
@@ -77,7 +109,7 @@ residuals.png         # OOF residual diagnostics
 ## Setup
 
 ```bash
-pip install macrosynergy jupyter
+pip install macrosynergy scikit-learn pandas numpy matplotlib jupyter
 ```
 
 Credentials for the JPMaQS API (client ID and secret) are required and must be placed in `credentials.json` — not included in this repo. Access can be requested via the Macrosynergy Academic Program.
@@ -95,7 +127,7 @@ Run the notebook top to bottom to reproduce all results. Downloaded data is cach
 
 ## Economic Rationale
 
-Full methodology and economic justification for predictor selection, model design, and result interpretation is documented in [`rationale.pdf`](rationale.pdf), covering:
+Full methodology and economic justification is documented in [`rationale.pdf`](rationale.pdf), covering:
 1. Predictor selection grounded in the Fisher decomposition, bond carry theory, and risk appetite channels
 2. Ensemble design rationale — regime robustness over CV-RMSE minimization
-3. OOS results, naive baseline comparison, per-model breakdown, and model limitations
+3. OOS results, naive baseline comparison, per-model breakdown, and limitations

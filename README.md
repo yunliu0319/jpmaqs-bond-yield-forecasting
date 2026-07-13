@@ -127,7 +127,7 @@ Run the notebook top to bottom to reproduce all results. Downloaded data is cach
 
 ## Economic Rationale
 
-Full methodology and economic justification is documented in [`rationale.pdf`](rationale.pdf), covering:
+Full methodology and economic justification is documented in [`JPMaQS_Writeup.pdf`](JPMaQS_Writeup.pdf), covering:
 1. Predictor selection grounded in the Fisher decomposition, bond carry theory, and risk appetite channels
 2. Ensemble design rationale — regime robustness over CV-RMSE minimization
 3. OOS results, naive baseline comparison, per-model breakdown, and limitations

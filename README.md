@@ -39,7 +39,7 @@ This project builds a panel forecasting model that remains predictive across reg
 | Naive (predict zero) | 0.714% | 0.0% | 50.0% |
 | Ridge + ElasticNet + HGB (original) | 0.688% | 3.6% | 57.9% |
 | Ridge + HGB (ElasticNet dropped) | 0.685% | 4.0% | 57.7% |
-| **Ridge + HGB + regime indicator (final)** | **0.639%** | **10.4%** | **62.2%** |
+| **Ridge + HGB, all features properly lagged (final)** | -| **~3%** | **~57%** |
 
 OOS period: 52 weeks, March 2025 – March 2026 (468 country-week observations).
 Improvement vs naive (62.2%) is statistically significant at p < 0.001.
@@ -48,17 +48,12 @@ Improvement vs naive (62.2%) is statistically significant at p < 0.001.
 
 ## Model Refinement
 
-The final model was reached through two iterative improvements over the original three-model ensemble:
-
-**Step 1 — Diagnose ElasticNet regime overfitting**
-
-ElasticNet ranked best in walk-forward CV (RMSE 0.882%) but worst OOS (1.6% skill). The CV-OOS reversal is consistent with its sparse L1 regularization locking onto a small set of features calibrated to the tightening regime (2022–2025), which lost predictive power when the cutting cycle began in the OOS window. HistGradBoost alone matched the full ensemble's OOS RMSE (0.6879% vs 0.6880%), confirming ElasticNet added no OOS value and could be dropped.
-
-**Step 2 — Add explicit monetary policy cycle indicator**
-
-The models had access to the *level* of 2Y real yield IRS but not its *direction of change*. Adding the 4-week change in `RYLDIRS02Y_NSA` per country (`mp_cycle_own`) and its cross-sectional mean (`mp_cycle_global`) gives both Ridge and HGB explicit information about whether policy expectations are tightening or easing — without requiring them to infer regime from raw levels alone.
-
-This improved RMSE skill from 4.0% to 10.4% and directional accuracy from 57.7% to 62.2%.
+Step 1 — Diagnose ElasticNet's CV-OOS reversal
+ElasticNet ranked best in walk-forward CV (RMSE 0.882%) but worst OOS (1.6% skill). The reversal is consistent with its sparse L1 regularization locking onto a small set of features calibrated to the tightening regime (2022–2025), which lost predictive power in the OOS window. HistGradientBoosting alone matched the full ensemble's OOS RMSE (0.6879% vs 0.6880%), confirming ElasticNet added no OOS value and could be dropped.
+Caveat worth stating: the OOS spread between models is small (0.688% vs 0.685% vs 0.688%), and with nine highly correlated markets over 52 weeks, the effective sample is far smaller than the row count suggests. I would not over-interpret the model ranking. The clearer evidence of regime sensitivity is the final CV fold (2022 inflation shock), where errors blew up relative to the earlier folds.
+Step 2 — Add a monetary policy cycle indicator, and then remove it
+The models had access to the level of the 2Y real yield IRS but not its direction of change. I added the 4-week change in RYLDIRS02Y_NSA per country (mp_cycle_own) and its cross-sectional mean (mp_cycle_global), so the models could see whether policy expectations were tightening or easing rather than inferring it from levels.
+Reported skill jumped from 4.0% to 10.4%, and directional accuracy from 57.7% to 62.2%.
 
 ---
 
